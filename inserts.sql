@@ -15,6 +15,13 @@ INSERT INTO Courses VALUES ('CCC333', 'C3', 30,   'Dep1');
 INSERT INTO Courses VALUES ('CCC444', 'C4', 40,   'Dep1');
 INSERT INTO Courses VALUES ('CCC555', 'C5', 50,   'Dep1');
 
+INSERT INTO Programs VALUES ('Prog1', 'P1');
+INSERT INTO Programs VALUES ('Prog2', 'P2');
+INSERT INTO Programs VALUES ('Prog3', 'P3');
+
+INSERT INTO Departments VALUES ('Dep1', 'D1');
+INSERT INTO Departments VALUES ('Dep2', 'D2');
+
 INSERT INTO LimitedCourses VALUES ('CCC222', 2);
 INSERT INTO LimitedCourses VALUES ('CCC333', 2);
 
@@ -29,6 +36,7 @@ INSERT INTO Classified VALUES ('CCC444','seminar');
 INSERT INTO StudentBranches VALUES ('2222222222', 'B1', 'Prog1');
 INSERT INTO StudentBranches VALUES ('3333333333', 'B1', 'Prog2');
 INSERT INTO StudentBranches VALUES ('4444444444', 'B1', 'Prog1');
+-- INSERT INTO StudentBranches VALUES ('5555555555', 'B2', 'Prog1'); -- Should make the program crash.
 
 INSERT INTO MandatoryProgram VALUES ('CCC111', 'Prog1');
 
@@ -44,10 +52,17 @@ INSERT INTO Registered VALUES ('2222222222', 'CCC222');
 INSERT INTO Registered VALUES ('5555555555', 'CCC333');
 INSERT INTO Registered VALUES ('1111111111', 'CCC333');
 
+INSERT INTO Prerequisites VALUES ('CCC111', 'CCC222');
+INSERT INTO Prerequisites VALUES ('CCC222', 'CCC333');
+INSERT INTO Prerequisites VALUES ('CCC444', 'CCC555');
+
 -- Using TIMESTAMP, therefore removed the position parameters.
 INSERT INTO WaitingList VALUES ('3333333333', 'CCC222');
 INSERT INTO WaitingList VALUES ('3333333333', 'CCC333');
+INSERT INTO WaitingList VALUES ('4444444444', 'CCC333');
 INSERT INTO WaitingList VALUES ('2222222222', 'CCC333');
+INSERT INTO WaitingList VALUES ('5555555555', 'CCC222');
+INSERT INTO WaitingList VALUES ('6666666666', 'CCC333');
 
 INSERT INTO Taken VALUES('2222222222', 'CCC111', 'U');
 INSERT INTO Taken VALUES('2222222222', 'CCC222', 'U');
@@ -62,5 +77,5 @@ INSERT INTO Taken VALUES('5555555555', 'CCC111', '5');
 INSERT INTO Taken VALUES('5555555555', 'CCC333', '5');
 INSERT INTO Taken VALUES('5555555555', 'CCC444', '5');
 
-
-
+INSERT INTO ProgramDepartment VALUES ('Prog1', 'Dep1');
+INSERT INTO ProgramDepartment VALUES ('Prog2', 'Dep2');
