@@ -5,6 +5,13 @@ CREATE VIEW BasicInformation AS
   LEFT JOIN StudentBranches sb
   ON s.idnr = sb.student;
 
+-- Used to test last part of assignment 2.
+CREATE VIEW BasicInformation2 AS
+  SELECT s.idnr, s.name, s.login, sb.program, sb.branch
+  FROM Students s
+  LEFT JOIN StudentBranches sb
+  ON s.idnr = sb.student;
+
 -- FinishedCourses(student, course, grade, credits)
 CREATE VIEW FinishedCourses AS
  SELECT t.student, t.course, t.grade, c.credits
@@ -142,3 +149,10 @@ CREATE VIEW PathToGraduation AS
  LEFT JOIN SeminarCourses sc ON s.idnr = sc.student
  LEFT JOIN Qualified q ON s.idnr = q.student
  GROUP BY s.idnr, tc.totalCredits, ml.MandatoryLeft, mc.MathCredits, rc.researchCredits, sc.seminarCourses, q.qualified;
+
+-- CourseQueuePosition(course, student, place)
+CREATE VIEW CourseQueuePosition AS
+ SELECT wl.course, wl.student, ROW_NUMBER() Over (Order by position) AS place
+ FROM WaitingList wl
+ LEFT JOIN Students s ON s.idnr = wl.student
+ GROUP BY wl.course, wl.student;

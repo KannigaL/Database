@@ -1,0 +1,64 @@
+1. E-R diagram to FD.
+
+-- Branch
+_branch_
+
+-- Course
+_code_, credits, cname
+
+-- Department
+_department_, UNIQUE dabbr
+
+-- Program
+_program_, _pabbr_
+
+-- Student
+_idnr_, sname, UNIQUE login
+
+-- Classification
+_classiname_
+
+-- LimitedCourse
+capacity
+
+-- WaitingList
+UNIQUE position
+
+-- Taken
+grade
+
+-- Domain(Student, Department, Program, Branch, Course, Classification, LimitedCourse, WaitingList, Taken)
+Domain(idnr, sname, login, department, dabbr, program, pabbr, branch, code, credits, cname, classiname, capacity, position, grade)
+
+2. Domain description to FD.
+Domain(idnr, department, program, dabbr, branch, cname, code, credits, capacity, classiname, position, grade)
+
+3. Decompose the Domain in 1. 
+idnr → sname login program branch
+login → idnr
+department → dabbr
+dabbr → department
+program → pabbr
+code → department credits cname capacity 
+idnr code → position grade
+code position → idnr
+
+With the following input:
+idnr sname login department dabbr program pabbr branch code credits cname classiname capacity position grade
+idnr -> sname login program branch
+login -> idnr
+department -> dabbr
+dabbr -> department
+program -> pabbr
+code -> department credits cname capacity
+idnr code -> position grade
+code position -> idnr
+
+We get the following keys:
+code classiname position
+
+Domain(code, classiname, position).
+
+4. Carefully mark primary keys and all additional keys.
+-- UNIQUE constraint in department, student and waitinglist.
+

@@ -1,0 +1,37 @@
+The FDs:
+idnr → sname login program branch
+login → idnr
+department → dabbr
+dabbr → department
+program → pabbr
+code → department credits cname capacity
+idnr code → position grade
+code position → idnr 
+
+Keys: code classiname position
+
+
+Relational Schemas:
+
+Courses(_code_, credits, cname, department, capacity)
+
+Students(_idnr_, sname, login, program, branch)
+ login UNIQUE
+
+Departments(_department_, dabbr)
+ department → Courses.department
+ dabbr UNIQUE
+
+Programs(_program_, pabbr)
+ program → Students.program
+
+Taken(_idnr_, _code_, grade)
+ idnr → Students.idnr
+ code → Courses.code
+
+Waitinglist(_idnr_, _code_, position)
+ idnr → Students.idnr
+ code → Courses.code
+ (code, position) UNIQUE
+
+Classification(_classiname_)
