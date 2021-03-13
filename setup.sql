@@ -9,12 +9,6 @@ CREATE TABLE Students (
 -- UNIQUE constraint making sure a student can not be in two different programs depending on where one looks.
 ALTER TABLE Students ADD CONSTRAINT uc_sp UNIQUE (idnr, program);
 
--- Branches(_name_, _program_)
-CREATE TABLE Branches (
- name TEXT,
- program TEXT,
- PRIMARY KEY (name, program) ); -- Primary key can not be null.
-
 -- Courses(_code_, name, credits, department)
 CREATE TABLE Courses (
  code CHAR(6) PRIMARY KEY, -- Primary key can not be null.
@@ -26,6 +20,15 @@ CREATE TABLE Courses (
 CREATE TABLE Programs (
  name TEXT PRIMARY KEY,
  abbr TEXT NOT NULL );
+
+-- Added a reference to program as we talked about in the demo session.
+-- Currently tried to add a branch to a non-existing program, which it fails.
+-- Branches(_name_, _program_)
+-- program → Program.name
+CREATE TABLE Branches (
+ name TEXT,
+ program TEXT REFERENCES Programs(name),
+ PRIMARY KEY (name, program) ); -- Primary key can not be null.
 
 -- Department(_name_, abbr)
 CREATE TABLE Departments (
@@ -122,6 +125,9 @@ CREATE TABLE WaitingList (
  course CHAR(6) REFERENCES LimitedCourses,
  position TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL UNIQUE,
  PRIMARY KEY (student, course) );
+
+-- UNIQUE CONSTAINT from the demo session.
+ALTER TABLE WaitingList ADD CONSTRAINT uc_wl UNIQUE (course, position);
 
 -- ProgramDepartment(_program_, department)
 --  program → Programs.name
@@ -283,10 +289,6 @@ CREATE VIEW PathToGraduation AS
  LEFT JOIN Qualified q ON s.idnr = q.student
  GROUP BY s.idnr, tc.totalCredits, ml.MandatoryLeft, mc.MathCredits, rc.researchCredits, sc.seminarCourses, q.qualified;
 
-INSERT INTO Branches VALUES ('B1', 'Prog1');
-INSERT INTO Branches VALUES ('B2', 'Prog1');
-INSERT INTO Branches VALUES ('B1', 'Prog2');
-
 INSERT INTO Students VALUES ('1111111111', 'N1', 'ls1', 'Prog1');
 INSERT INTO Students VALUES ('2222222222', 'N2', 'ls2', 'Prog1');
 INSERT INTO Students VALUES ('3333333333', 'N3', 'ls3', 'Prog2');
@@ -304,6 +306,11 @@ INSERT INTO Programs VALUES ('Prog1', 'P1');
 INSERT INTO Programs VALUES ('Prog2', 'P2');
 INSERT INTO Programs VALUES ('Prog3', 'P3');
 
+INSERT INTO Branches VALUES ('B1', 'Prog1');
+INSERT INTO Branches VALUES ('B2', 'Prog1');
+INSERT INTO Branches VALUES ('B1', 'Prog2');
+INSERT INTO Branches VALUES ('B1', 'Prog4');
+
 INSERT INTO Departments VALUES ('Dep1', 'D1');
 INSERT INTO Departments VALUES ('Dep2', 'D2');
 
@@ -316,7 +323,7 @@ INSERT INTO Classifications VALUES ('seminar');
 
 INSERT INTO Classified VALUES ('CCC333', 'math');
 INSERT INTO Classified VALUES ('CCC444', 'research');
-INSERT INTO Classified VALUES ('CCC444','seminar');
+INSERT INTO Classified VALUES ('CCC444', 'seminar');
 
 INSERT INTO StudentBranches VALUES ('2222222222', 'B1', 'Prog1');
 INSERT INTO StudentBranches VALUES ('3333333333', 'B1', 'Prog2');
@@ -334,13 +341,14 @@ INSERT INTO RecommendedBranch VALUES ('CCC333', 'B2', 'Prog1');
 INSERT INTO Registered VALUES ('1111111111', 'CCC111');
 INSERT INTO Registered VALUES ('1111111111', 'CCC222');
 INSERT INTO Registered VALUES ('2222222222', 'CCC222');
+INSERT INTO Registered VALUES ('3333333333', 'CCC222');
+INSERT INTO Registered VALUES ('4444444444', 'CCC222');
 INSERT INTO Registered VALUES ('5555555555', 'CCC333');
 INSERT INTO Registered VALUES ('1111111111', 'CCC333');
 
 INSERT INTO Prerequisites VALUES ('CCC555', 'CCC111');
 
 -- Using TIMESTAMP, therefore removed the position parameters.
-INSERT INTO WaitingList VALUES ('3333333333', 'CCC222');
 INSERT INTO WaitingList VALUES ('3333333333', 'CCC333');
 INSERT INTO WaitingList VALUES ('4444444444', 'CCC333');
 INSERT INTO WaitingList VALUES ('2222222222', 'CCC333');
@@ -362,4 +370,124 @@ INSERT INTO Taken VALUES('5555555555', 'CCC444', '5');
 
 INSERT INTO ProgramDepartment VALUES ('Prog1', 'Dep1');
 INSERT INTO ProgramDepartment VALUES ('Prog2', 'Dep2');
+
+-- CourseQueuePositions(course, student, place)
+CREATE VIEW CourseQueuePositions AS
+ SELECT wl.course, wl.student, ROW_NUMBER() OVER(PARTITION BY course ORDER BY position) AS place
+ FROM WaitingList wl
+ LEFT JOIN Students s ON s.idnr = wl.student
+ GROUP BY wl.course, wl.student;
+
+CREATE OR REPLACE FUNCTION register() RETURNS trigger AS $register$
+    DECLARE
+    position TIMESTAMP;
+    courseCapacity INTEGER;
+    currentStudents INTEGER;
+    BEGIN
+        -- The student must first fulfill all prerequisites for the course.
+        -- First check prerequisite courses then remove all passedCourses.
+        IF EXISTS (
+            -- Add the prerequisite courses.
+            SELECT prereq
+            FROM Prerequisites
+            WHERE course = NEW.course
+            -- Remove all passedCourses.
+            EXCEPT
+            SELECT course
+            FROM PassedCourses
+            WHERE student = NEW.student)
+        THEN
+        RAISE EXCEPTION 'Student does not fulfill all prerequisites for the course!';
+        END IF;
+
+        -- It should not be possible for students to register for a course which they have already passed.
+        IF EXISTS (
+            SELECT course
+            FROM PassedCourses
+            WHERE student = NEW.student AND course = NEW.course)
+        THEN
+        RAISE EXCEPTION 'Student has already passed the course!';
+        END IF;
+
+        -- It should not be possible to register an already registered student.
+        IF (NEW.student, NEW.course)
+            IN (
+            -- Add the registered table.
+            SELECT student, course
+            FROM Registered
+            -- Add the waiting list.
+            UNION
+            SELECT student, course
+            FROM WaitingList)
+        THEN
+        RAISE EXCEPTION 'Student already registered for the course!';
+        END IF;
+
+        -- If the course is full then the student should be added to the WaitingList.
+        IF EXISTS (
+            SELECT code FROM LimitedCourses WHERE code = NEW.course) -- Check if the course is a limited course.
+            THEN
+            currentStudents := (SELECT COUNT(student) FROM Registered WHERE course = NEW.course); -- Get students.
+            courseCapacity := (SELECT capacity FROM LimitedCourses WHERE code = NEW.course); -- Get capacity.
+            IF (currentStudents >= courseCapacity) -- Check if capacity is exceeded.
+            THEN
+            position = now();
+            INSERT INTO WaitingList VALUES (NEW.student, NEW.course, position);
+            END IF;
+        RETURN NEW; -- Ends the trigger.
+        END IF;
+
+        -- After passing all conditions, add the student to the course.
+        INSERT INTO Registered VALUES (NEW.student, NEW.course);
+
+        RETURN NEW;
+    END;
+$register$ LANGUAGE plpgsql;
+
+CREATE TRIGGER register INSTEAD OF INSERT ON Registrations
+    FOR EACH ROW EXECUTE FUNCTION register();
+
+CREATE OR REPLACE FUNCTION deregister() RETURNS trigger AS $deregister$
+    DECLARE
+    insertStudent CHAR(10);
+    courseCapacity INTEGER;
+    currentStudents INTEGER;
+    BEGIN
+        -- Check if the student is registered on the waiting list.
+        -- If so remove the student and update the waiting list.
+        IF EXISTS (
+        SELECT course FROM WaitingList WHERE student = OLD.student AND course = OLD.course)
+        THEN
+        DELETE FROM WaitingList WHERE student = OLD.student AND course = OLD.course;
+        RETURN OLD; -- Ends the trigger.
+        END IF;
+
+        -- Unregister from a limited course with a waiting list, when the student is registered.
+        -- Check if the student is registered on a limited course. If so update the waiting list.
+        IF EXISTS (
+        SELECT code FROM LimitedCourses WHERE code = OLD.course)
+        THEN
+        -- Check if the course is overfull.
+        currentStudents := (SELECT COUNT(student) FROM Registered WHERE course = OLD.course); -- Get students.
+        courseCapacity := (SELECT capacity FROM LimitedCourses WHERE code = OLD.course); -- Get capacity.
+        IF (courseCapacity > currentStudents - 1) -- Check if capacity is exceeded. -1 from removal of a student.
+        THEN -- If not then add the next student on the waiting list.
+        insertStudent := (SELECT student FROM CourseQueuePositions WHERE place = 1 AND course = OLD.course);
+        IF (insertStudent IS NOT NULL)
+        THEN
+        DELETE FROM WaitingList WHERE student = insertStudent AND course = OLD.course;
+        END IF;
+        INSERT INTO Registered VALUES (insertStudent, OLD.course);
+        END IF;
+        END IF;
+
+        -- If in Registered, remove the student.
+        DELETE FROM Registered WHERE student = OLD.student AND course = OLD.course;
+
+        RETURN OLD;
+    END;
+$deregister$ LANGUAGE plpgsql;
+
+CREATE TRIGGER deregister INSTEAD OF DELETE ON Registrations
+    FOR EACH ROW EXECUTE FUNCTION deregister();
 

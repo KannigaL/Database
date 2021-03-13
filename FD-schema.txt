@@ -22,6 +22,9 @@ Departments(_department_, dabbr)
  department → Courses.department
  dabbr UNIQUE
 
+Branches(_name_, _program_)
+ program → Program.name
+
 Programs(_program_, pabbr)
  program → Students.program
 
